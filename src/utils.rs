@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 pub struct Config {
     addr: SocketAddr,
@@ -23,4 +24,17 @@ impl Config {
     pub fn addr(&self) -> SocketAddr {
         self.addr
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ConnectRequest {
+    pub des_ip: String,
+    pub des_port: u16,
+    pub src_ip: String,
+    pub src_port: u16,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Heartbeat {
+    pub addr: SocketAddr,
 }
