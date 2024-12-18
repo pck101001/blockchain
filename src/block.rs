@@ -75,6 +75,9 @@ impl Block {
     pub fn nonce(&self) -> u64 {
         self.nonce
     }
+    pub fn timestamp(&self) -> u128 {
+        self.timestamp
+    }
 }
 pub fn calculate_merkle_root(transactions: &[Transaction]) -> String {
     if transactions.is_empty() {

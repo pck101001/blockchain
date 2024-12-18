@@ -35,7 +35,7 @@ document.getElementById('connectForm').addEventListener('submit', function (even
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ des_ip, des_port, src_ip, src_port })
+        body: JSON.stringify({ des_ip, des_port, src_ip, src_port, public_key: '', is_broadcast: false, is_response: false })
     })
         .then(response => response.json())
         .then(data => {
@@ -89,7 +89,7 @@ document.getElementById('faucetForm').addEventListener('submit', async (e) => {
 });
 document.getElementById('miningForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const publicKey = document.getElementById('minerPublicKey').value;
+    const publicKey = document.getElementById('minerPublicKeyDisplay').value;
     try {
         const response = await fetch('/mine', {
             method: 'POST',
@@ -111,9 +111,27 @@ document.getElementById('balanceForm').addEventListener('submit', async (e) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ public_key: publicKey })
         });
-        const { balance } = await response.json();
-        document.getElementById('balanceDisplay').textContent = `Balance: ${balance}`;
+        const { fixed_balance, pending_balance } = await response.json();
+        document.getElementById('balanceDisplay').textContent = `Balance: ${fixed_balance}(${pending_balance} pending)`;
     } catch (error) {
         document.getElementById('balanceDisplay').textContent = `Error: ${error.message}`;
+    }
+});
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const response = await fetch('/miner_keys', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const keyPair = await response.json();
+        document.getElementById('minerPrivateKeyDisplay').textContent = `Private Key: ${keyPair.private_key}`;
+        document.getElementById('minerPublicKeyDisplay').textContent = `Public Key: ${keyPair.public_key}`;
+    } catch (error) {
+        console.error('Failed to generate key pair:', error);
     }
 });

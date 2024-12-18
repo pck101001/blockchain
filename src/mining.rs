@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::time::{interval, Duration};
 
-pub async fn mine_block(states: AppStates, last_hash: String, miner: String) {
+pub async fn mine_block(states: AppStates, last_hash: String) {
     let mut rng = rand::thread_rng();
     let difficulty = Arc::new(AtomicUsize::new(4));
 
@@ -23,7 +23,7 @@ pub async fn mine_block(states: AppStates, last_hash: String, miner: String) {
             if !mining_state_clone.load(Ordering::SeqCst) {
                 break;
             }
-            let nodes_count = { nodes_clone.lock().unwrap().get_nodes().len() };
+            let nodes_count = { nodes_clone.lock().unwrap().get_nodes_addr().len() };
             difficulty_clone.store(calculate_difficulty(nodes_count), Ordering::Relaxed);
         }
     });
@@ -32,14 +32,15 @@ pub async fn mine_block(states: AppStates, last_hash: String, miner: String) {
             break;
         }
         let nonce = rng.gen::<u64>();
-        let nodes_count = { states.nodes.lock().unwrap().get_nodes().len() };
+        let nodes_count = { states.nodes.lock().unwrap().get_nodes_addr().len() };
         if verify_answer(&last_hash, nodes_count, nonce) {
             let mut blockchain = states.blockchain.lock().unwrap();
             let current_difficulty = difficulty.load(Ordering::Relaxed);
             let last_hash = blockchain.last_hash();
-            blockchain.mine_block(&miner, nonce, current_difficulty);
-            let new_block = blockchain.last_block();
-            let nodes = { states.nodes.lock().unwrap().get_nodes() };
+            let miner = { states.nodes.lock().unwrap().get_local_public_key() };
+            let new_block = blockchain.mine_block(&miner, nonce, current_difficulty);
+            let nodes = { states.nodes.lock().unwrap().get_nodes_addr() };
+            blockchain.add_block(new_block.clone());
             println!("New Block Mined: {:?}", new_block);
             tokio::spawn(async move {
                 broadcast_new_block(new_block, last_hash, nodes, false).await;
@@ -72,7 +73,7 @@ pub async fn broadcast_new_block(
 pub fn verify_answer(last_hash: &String, nodes_count: usize, nonce: u64) -> bool {
     let hash = calculate_hash(last_hash, nonce);
     let difficulty = calculate_difficulty(nodes_count);
-    if (hash.starts_with(&"0".repeat(difficulty))) {
+    if hash.starts_with(&"0".repeat(10 - difficulty)) {
         println!("Hash: {}", hash);
         return true;
     }
@@ -88,6 +89,6 @@ pub fn calculate_difficulty(nodes_count: usize) -> usize {
     if nodes_count < 5 {
         5
     } else {
-        7
+        3
     }
 }

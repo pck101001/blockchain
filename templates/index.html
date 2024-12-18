@@ -41,7 +41,7 @@
                     </div>
                     <div>
                         <label for="amount">Amount:</label>
-                        <input type="number" id="amount" name="amount" required>
+                        <input type="number" id="amount" name="amount" step="any" required>
                     </div>
                     <button type="submit">Send Transaction</button>
                 </form>
@@ -89,8 +89,9 @@
                 <h2>Start Mining</h2>
                 <form id="miningForm">
                     <div>
-                        <label for="minerPublicKey">Miner Public Key:</label>
-                        <input type="text" id="minerPublicKey" name="minerPublicKey" required>
+                        <label for="minerKeys">Miner Keys:</label>
+                        <div id="minerPrivateKeyDisplay"></div>
+                        <div id="minerPublicKeyDisplay"></div>
                     </div>
                     <button type="submit">Start Mining</button>
                 </form>

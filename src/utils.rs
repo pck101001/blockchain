@@ -1,10 +1,16 @@
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
 
-use crate::{block::Block, blockchain::Blockchain, node::NodeManager};
+use crate::{
+    block::Block,
+    blockchain::Blockchain,
+    node::{Node, NodeManager},
+};
 // Request Assisting Structures & Functions
 pub struct Config {
     addr: SocketAddr,
@@ -36,6 +42,7 @@ pub struct AppStates {
     pub blockchain: Arc<Mutex<Blockchain>>,
     pub nodes: Arc<Mutex<NodeManager>>,
     pub mining_state: Arc<AtomicBool>,
+    pub votes: Arc<Mutex<HashMap<String, (HashMap<String, bool>, SystemTime)>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -44,6 +51,9 @@ pub struct ConnectRequest {
     pub des_port: u16,
     pub src_ip: String,
     pub src_port: u16,
+    pub public_key: String,
+    pub is_broadcast: bool,
+    pub is_response: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,6 +62,14 @@ pub struct TransactionRequest {
     pub sender_public_key: String,
     pub receiver_public_key: String,
     pub amount: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SyncRequest {
+    pub blockchain: Option<Blockchain>,
+    pub nodes: Option<Vec<Node>>,
+    pub is_response: bool,
+    pub src_addr: SocketAddr,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -74,6 +92,7 @@ pub enum NewBlockResponse {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Heartbeat {
     pub addr: SocketAddr,
+    pub public_key: String,
 }
 
 #[derive(Serialize)]
