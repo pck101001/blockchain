@@ -1,9 +1,10 @@
-use hex;
-use secp256k1::ecdsa::Signature;
-use secp256k1::Message;
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
+
+use crate::{block::Block, blockchain::Blockchain, node::NodeManager};
 // Request Assisting Structures & Functions
 pub struct Config {
     addr: SocketAddr,
@@ -30,8 +31,14 @@ impl Config {
         self.addr
     }
 }
+#[derive(Clone)]
+pub struct AppStates {
+    pub blockchain: Arc<Mutex<Blockchain>>,
+    pub nodes: Arc<Mutex<NodeManager>>,
+    pub mining_state: Arc<AtomicBool>,
+}
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ConnectRequest {
     pub des_ip: String,
     pub des_port: u16,
@@ -39,7 +46,7 @@ pub struct ConnectRequest {
     pub src_port: u16,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TransactionRequest {
     pub sender_private_key: String,
     pub sender_public_key: String,
@@ -47,7 +54,24 @@ pub struct TransactionRequest {
     pub amount: f64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RequestWithKey {
+    pub public_key: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct NewBlockRequest {
+    pub new_block: Block,
+    pub last_hash: String,
+    pub is_genesis: bool,
+}
+pub enum NewBlockResponse {
+    Success,
+    SyncRequest,
+    NonceError,
+    HashError,
+}
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Heartbeat {
     pub addr: SocketAddr,
 }
@@ -59,14 +83,14 @@ pub struct KeyPair {
 }
 // Crypto Assisting Structures & Functions
 
-pub fn private_key_from_string(private_key: &String) -> Result<SecretKey, String> {
-    let private_key = private_key.as_str().trim().trim_start_matches("0x");
+pub fn private_key_from_string(private_key: &str) -> Result<SecretKey, String> {
+    let private_key = private_key.trim().trim_start_matches("0x");
     let private_key = hex::decode(private_key).map_err(|e| e.to_string())?;
     SecretKey::from_slice(&private_key).map_err(|err| format!("Invalid private key: {}", err))
 }
 
-pub fn public_key_from_string(public_key: &String) -> Result<PublicKey, String> {
-    let public_key = public_key.as_str().trim().trim_start_matches("0x");
+pub fn public_key_from_string(public_key: &str) -> Result<PublicKey, String> {
+    let public_key = public_key.trim().trim_start_matches("0x");
     let public_key = hex::decode(public_key).map_err(|e| e.to_string())?;
     PublicKey::from_slice(&public_key).map_err(|err| format!("Invalid public key: {}", err))
 }

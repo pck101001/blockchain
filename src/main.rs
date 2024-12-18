@@ -1,13 +1,13 @@
 use axum::{
     response::Html,
     routing::{get, post},
-    Router, ServiceExt,
+    Router,
 };
 use axum_server::Server;
-use server::heartbeat;
+use std::env;
 use std::process;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-use std::{env, net::SocketAddr};
 use tower_http::services::ServeDir;
 
 mod block;
@@ -28,7 +28,12 @@ async fn main() {
         .addr();
     let blockchain = Arc::new(Mutex::new(blockchain::Blockchain::new()));
     let nodes = Arc::new(Mutex::new(node::NodeManager::new(&local_addr)));
-
+    let mining_state = Arc::new(AtomicBool::new(false));
+    let states = utils::AppStates {
+        blockchain: blockchain.clone(),
+        nodes: nodes.clone(),
+        mining_state: mining_state.clone(),
+    };
     let app = Router::new()
         .nest_service("/static", ServeDir::new("static"))
         .route(
@@ -45,10 +50,14 @@ async fn main() {
         )
         .route("/connect", post(server::connect_handler))
         .route("/heartbeat", post(server::heartbeat_handler))
+        .route("/genesis_block", post(server::genesis_block_handler))
+        .route("/faucet", post(server::faucet_handler))
+        .route("/balance", post(server::balance_handler))
         .route("/mine", post(server::mine_handler))
+        .route("/new_block", post(server::new_block_handler))
         .route("/generate_key_pair", get(server::generate_key_pair))
-        .with_state((blockchain.clone(), nodes.clone()));
-    tokio::spawn(heartbeat(nodes.clone(), local_addr));
+        .with_state(states);
+    tokio::spawn(server::heartbeat(nodes.clone(), local_addr));
     Server::bind(local_addr)
         .serve(app.into_make_service())
         .await

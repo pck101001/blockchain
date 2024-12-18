@@ -179,6 +179,7 @@ dependencies = [
  "axum",
  "axum-server",
  "hex",
+ "rand",
  "reqwest",
  "secp256k1",
  "serde",

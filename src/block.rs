@@ -1,7 +1,9 @@
 use crate::transaction::Transaction;
-use hex;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::time::SystemTime;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Block {
     index: u64,
     timestamp: u128,
@@ -9,6 +11,7 @@ pub struct Block {
     merkle_hash: String,
     nonce: u64,
     miner: String,
+    mining_difficulty: usize,
 
     data: Vec<Transaction>,
 }
@@ -21,6 +24,7 @@ impl Block {
         nonce: u64,
         data: Vec<Transaction>,
         miner: String,
+        mining_difficulty: usize,
     ) -> Block {
         let merkle_hash = calculate_merkle_root(&data);
         let mut data_indexed = data.clone();
@@ -35,6 +39,22 @@ impl Block {
             nonce,
             data: data_indexed,
             miner,
+            mining_difficulty,
+        }
+    }
+    pub fn genesis() -> Block {
+        Block {
+            index: 0,
+            timestamp: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+            previous_hash: String::from("0"),
+            merkle_hash: String::from("0"),
+            nonce: 0,
+            data: Vec::new(),
+            miner: String::from("0"),
+            mining_difficulty: 0,
         }
     }
     pub fn block_hash(&self) -> String {
@@ -46,8 +66,17 @@ impl Block {
         hasher.update(self.nonce.to_string());
         hex::encode(hasher.finalize())
     }
+    pub fn index(&self) -> u64 {
+        self.index
+    }
+    pub fn data(&self) -> Vec<Transaction> {
+        self.data.clone()
+    }
+    pub fn nonce(&self) -> u64 {
+        self.nonce
+    }
 }
-pub fn calculate_merkle_root(transactions: &Vec<Transaction>) -> String {
+pub fn calculate_merkle_root(transactions: &[Transaction]) -> String {
     if transactions.is_empty() {
         return String::from("");
     }

@@ -1,53 +1,104 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blockchain</title>
     <link rel="stylesheet" type="text/css" href="../static/css/style.css">
 </head>
 
 <body>
-    <div class="test">
-        <h1>Blockchain</h1>
-        <p>Blockchain is a distributed database that maintains a continuously-growing list of records called blocks
-            secured from tampering and revision.</p>
-    </div>
-    <div class="transaction">
-        <h2>Send Transaction</h2>
-        <form id="transactionForm">
-            <label for="sender">Sender Private Key:</label>
-            <input type="text" id="senderPri" name="senderPri" required><br>
-
-            <label for="sender">Sender Pubic Key:</label>
-            <input type="text" id="senderPub" name="senderPub" required><br>
-
-            <label for="receiver">Receiver:</label>
-            <input type="text" id="receiver" name="receiver" required><br>
-
-            <label for="amount">Amount:</label>
-            <input type="number" id="amount" name="amount" required><br>
-
-            <button type="submit">Send Transaction</button>
-        </form>
-    </div>
-    <div class="connect">
-        <h2>Connect with Node</h2>
-        <form id="connectForm">
-            <label for="targetIp">Target IP:</label>
-            <input type="text" id="targetIp" name="targetIp" required><br>
-            <label for="targetPort">Target Port:</label>
-            <input type="number" id="targetPort" name="targetPort" required><br>
-            <button type="submit">Connect</button>
-        </form>
-    </div>
-    <div class="keyGenerator">
-        <h2>Generate Key Pair</h2>
-        <button id="generateKeyPair">Generate Key Pair</button>
-        <div id="privateKeyDisplay"></div>
-        <div id="publicKeyDisplay"></div>
-    </div>
+    <header>
+        <h1>Blockchain Interface</h1>
+    </header>
+    <main>
+        <section class="description">
+            <p>Blockchain is a distributed database that maintains a continuously-growing list of records called blocks,
+                secured from tampering and revision.</p>
+        </section>
+        <section class="actions">
+            <div class="card">
+                <h2>Generate Key Pair</h2>
+                <button id="generateKeyPair">Generate Key Pair</button>
+                <div id="privateKeyDisplay"></div>
+                <div id="publicKeyDisplay"></div>
+            </div>
+            <div class="card">
+                <h2>Send Transaction</h2>
+                <form id="transactionForm">
+                    <div>
+                        <label for="senderPri">Sender Private Key:</label>
+                        <input type="text" id="senderPri" name="senderPri" required>
+                    </div>
+                    <div>
+                        <label for="senderPub">Sender Public Key:</label>
+                        <input type="text" id="senderPub" name="senderPub" required>
+                    </div>
+                    <div>
+                        <label for="receiver">Receiver:</label>
+                        <input type="text" id="receiver" name="receiver" required>
+                    </div>
+                    <div>
+                        <label for="amount">Amount:</label>
+                        <input type="number" id="amount" name="amount" required>
+                    </div>
+                    <button type="submit">Send Transaction</button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Connect with Node</h2>
+                <form id="connectForm">
+                    <div>
+                        <label for="targetIp">Target IP:</label>
+                        <input type="text" id="targetIp" name="targetIp" required>
+                    </div>
+                    <div>
+                        <label for="targetPort">Target Port:</label>
+                        <input type="number" id="targetPort" name="targetPort" required>
+                    </div>
+                    <button type="submit">Connect</button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Create Genesis Block</h2>
+                <button id="createGenesisBlock">Create Genesis Block</button>
+            </div>
+            <div class="card">
+                <h2>Faucet Request</h2>
+                <form id="faucetForm">
+                    <div>
+                        <label for="faucetPublicKey">Public Key:</label>
+                        <input type="text" id="faucetPublicKey" name="faucetPublicKey" required>
+                    </div>
+                    <button type="submit">Request Coins</button>
+                </form>
+            </div>
+            <div class="card">
+                <h2>Check Balance</h2>
+                <form id="balanceForm">
+                    <div>
+                        <label for="publicKeyBalance">Public Key:</label>
+                        <input type="text" id="publicKeyBalance" name="publicKeyBalance" required>
+                    </div>
+                    <button type="submit">Check Balance</button>
+                </form>
+                <div id="balanceDisplay"></div>
+            </div>
+            <div class="card">
+                <h2>Start Mining</h2>
+                <form id="miningForm">
+                    <div>
+                        <label for="minerPublicKey">Miner Public Key:</label>
+                        <input type="text" id="minerPublicKey" name="minerPublicKey" required>
+                    </div>
+                    <button type="submit">Start Mining</button>
+                </form>
+            </div>
+        </section>
+    </main>
 
     <script src="../static/js/handler.js"></script>
+</body>
 
 </html>

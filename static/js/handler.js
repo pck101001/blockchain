@@ -63,3 +63,57 @@ document.getElementById('generateKeyPair').addEventListener('click', async funct
         console.error('Failed to generate key pair:', error);
     }
 });
+document.getElementById('createGenesisBlock').addEventListener('click', async () => {
+    try {
+        const response = await fetch('/genesis_block', { method: 'POST' });
+        const result = await response.json();
+        alert(result.status || 'Genesis block created successfully!');
+    } catch (error) {
+        alert('Failed to create genesis block: ' + error.message);
+    }
+});
+document.getElementById('faucetForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const publicKey = document.getElementById('faucetPublicKey').value;
+    try {
+        const response = await fetch('/faucet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ public_key: publicKey })
+        });
+        const result = await response.json();
+        alert(result.status);
+    } catch (error) {
+        alert('Faucet request failed: ' + error.message);
+    }
+});
+document.getElementById('miningForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const publicKey = document.getElementById('minerPublicKey').value;
+    try {
+        const response = await fetch('/mine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ public_key: publicKey })
+        });
+        const result = await response.json();
+        alert(result.status);
+    } catch (error) {
+        alert('Mining failed to start: ' + error.message);
+    }
+});
+document.getElementById('balanceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const publicKey = document.getElementById('publicKeyBalance').value;
+    try {
+        const response = await fetch('/balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ public_key: publicKey })
+        });
+        const { balance } = await response.json();
+        document.getElementById('balanceDisplay').textContent = `Balance: ${balance}`;
+    } catch (error) {
+        document.getElementById('balanceDisplay').textContent = `Error: ${error.message}`;
+    }
+});
