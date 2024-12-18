@@ -45,6 +45,8 @@ async fn main() {
         )
         .route("/connect", post(server::connect_handler))
         .route("/heartbeat", post(server::heartbeat_handler))
+        .route("/mine", post(server::mine_handler))
+        .route("/generate_key_pair", get(server::generate_key_pair))
         .with_state((blockchain.clone(), nodes.clone()));
     tokio::spawn(heartbeat(nodes.clone(), local_addr));
     Server::bind(local_addr)

@@ -1,5 +1,10 @@
+use hex;
+use secp256k1::ecdsa::Signature;
+use secp256k1::Message;
+use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+// Request Assisting Structures & Functions
 pub struct Config {
     addr: SocketAddr,
 }
@@ -35,6 +40,38 @@ pub struct ConnectRequest {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TransactionRequest {
+    pub sender_private_key: String,
+    pub sender_public_key: String,
+    pub receiver_public_key: String,
+    pub amount: f64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Heartbeat {
     pub addr: SocketAddr,
+}
+
+#[derive(Serialize)]
+pub struct KeyPair {
+    pub private_key: String,
+    pub public_key: String,
+}
+// Crypto Assisting Structures & Functions
+
+pub fn private_key_from_string(private_key: &String) -> Result<SecretKey, String> {
+    let private_key = private_key.as_str().trim().trim_start_matches("0x");
+    let private_key = hex::decode(private_key).map_err(|e| e.to_string())?;
+    SecretKey::from_slice(&private_key).map_err(|err| format!("Invalid private key: {}", err))
+}
+
+pub fn public_key_from_string(public_key: &String) -> Result<PublicKey, String> {
+    let public_key = public_key.as_str().trim().trim_start_matches("0x");
+    let public_key = hex::decode(public_key).map_err(|e| e.to_string())?;
+    PublicKey::from_slice(&public_key).map_err(|err| format!("Invalid public key: {}", err))
+}
+
+pub fn is_key_match(private_key: &SecretKey, public_key: &PublicKey) -> Result<bool, String> {
+    let secp = Secp256k1::new();
+    Ok(PublicKey::from_secret_key(&secp, private_key) == *public_key)
 }

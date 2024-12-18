@@ -1,8 +1,18 @@
-use crate::utils::{ConnectRequest, Heartbeat};
-use crate::{blockchain::Blockchain, node::NodeManager, transaction::Transaction};
-use crate::{node, transaction};
+use crate::utils::{
+    private_key_from_string, public_key_from_string, ConnectRequest, Heartbeat, KeyPair,
+    TransactionRequest,
+};
+use crate::{
+    blockchain::Blockchain,
+    node::NodeManager,
+    transaction::{RowTransaction, Transaction},
+};
 use axum::{extract::State, response::IntoResponse, Json};
 use reqwest;
+use secp256k1::Secp256k1;
+use secp256k1::{generate_keypair, rand};
+use secp256k1::{PublicKey, SecretKey};
+use std::time::SystemTime;
 use std::{
     net::SocketAddr,
     sync::{Arc, Mutex},
@@ -11,9 +21,37 @@ use tokio::time::{interval, Duration};
 
 pub async fn transaction_submit_handler(
     State((blockchain, nodes)): State<(Arc<Mutex<Blockchain>>, Arc<Mutex<NodeManager>>)>,
-    Json(transaction): Json<Transaction>,
+    Json(transaction_request): Json<TransactionRequest>,
 ) -> impl IntoResponse {
-    println!("Submitted transaction: {:?}", transaction);
+    println!("Submitted transaction: {:?}", transaction_request);
+    let sender_private_key = match private_key_from_string(&transaction_request.sender_private_key)
+    {
+        Ok(private_key) => private_key,
+        Err(e) => return Json(serde_json::json!({"status":e})),
+    };
+    let sender_public_key = match public_key_from_string(&transaction_request.sender_public_key) {
+        Ok(public_key) => public_key,
+        Err(e) => return Json(serde_json::json!({"status":e})),
+    };
+    let receiver_public_key = match public_key_from_string(&transaction_request.receiver_public_key)
+    {
+        Ok(public_key) => public_key,
+        Err(e) => return Json(serde_json::json!({"status":e})),
+    };
+
+    let row_transaction = RowTransaction {
+        sender: format!("0x{}", hex::encode(sender_public_key.serialize())),
+        receiver: format!("0x{}", hex::encode(receiver_public_key.serialize())),
+        amount: transaction_request.amount,
+        time: SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+    };
+    let transaction = Transaction::new(row_transaction.clone(), &sender_private_key);
+    if transaction.verify().is_err() {
+        return Json(serde_json::json!({"status":"invalid transaction"}));
+    }
     let mut blockchain = blockchain.lock().unwrap();
     blockchain.add_pending_transaction(transaction.clone());
     let nodes = nodes
@@ -37,12 +75,13 @@ pub async fn transaction_submit_handler(
         });
         println!("Flooding transaction to {:?}", node);
     }
+    println!("Transaction added: {:?}", transaction_for_flooding);
 
     Json(serde_json::json!({"status":"pending transaction added"}))
 }
 
 pub async fn transaction_flooding_handler(
-    State((blockchain, nodes)): State<(Arc<Mutex<Blockchain>>, Arc<Mutex<NodeManager>>)>,
+    State((blockchain, _nodes)): State<(Arc<Mutex<Blockchain>>, Arc<Mutex<NodeManager>>)>,
     Json(transaction): Json<Transaction>,
 ) -> impl IntoResponse {
     let mut blockchain = blockchain.lock().unwrap();
@@ -176,4 +215,18 @@ pub async fn heartbeat(node_manager: Arc<Mutex<NodeManager>>, local_addr: Socket
             }
         }
     }
+}
+
+pub async fn mine_handler(
+    State((blockchain, _nodes)): State<(Arc<Mutex<Blockchain>>, Arc<Mutex<NodeManager>>)>,
+    Json(miner): Json<String>,
+) -> impl IntoResponse {
+}
+
+pub async fn generate_key_pair() -> impl IntoResponse {
+    let (private_key, public_key) = generate_keypair(&mut rand::thread_rng());
+    Json(KeyPair {
+        private_key: hex::encode(private_key.secret_bytes()),
+        public_key: hex::encode(public_key.serialize()),
+    })
 }

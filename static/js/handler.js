@@ -1,8 +1,9 @@
 document.getElementById('transactionForm').addEventListener('submit', function (event) {
     event.preventDefault();
 
-    const sender = document.getElementById('sender').value;
-    const receiver = document.getElementById('receiver').value;
+    const sender_private_key = document.getElementById('senderPri').value;
+    const sender_public_key = document.getElementById('senderPub').value;
+    const receiver_public_key = document.getElementById('receiver').value;
     const amount = parseFloat(document.getElementById('amount').value);
 
     fetch('/transaction/submit', {
@@ -10,7 +11,7 @@ document.getElementById('transactionForm').addEventListener('submit', function (
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ sender, receiver, amount })
+        body: JSON.stringify({ sender_private_key, sender_public_key, receiver_public_key, amount })
     })
         .then(response => response.json())
         .then(data => {
@@ -43,4 +44,22 @@ document.getElementById('connectForm').addEventListener('submit', function (even
         .catch((error) => {
             console.error('Error:', error);
         });
+});
+document.getElementById('generateKeyPair').addEventListener('click', async function () {
+    try {
+        const response = await fetch('/generate_key_pair', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const keyPair = await response.json();
+        document.getElementById('privateKeyDisplay').textContent = `Private Key: ${keyPair.private_key}`;
+        document.getElementById('publicKeyDisplay').textContent = `Public Key: ${keyPair.public_key}`;
+    } catch (error) {
+        console.error('Failed to generate key pair:', error);
+    }
 });

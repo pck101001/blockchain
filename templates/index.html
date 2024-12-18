@@ -16,8 +16,11 @@
     <div class="transaction">
         <h2>Send Transaction</h2>
         <form id="transactionForm">
-            <label for="sender">Sender:</label>
-            <input type="text" id="sender" name="sender" required><br>
+            <label for="sender">Sender Private Key:</label>
+            <input type="text" id="senderPri" name="senderPri" required><br>
+
+            <label for="sender">Sender Pubic Key:</label>
+            <input type="text" id="senderPub" name="senderPub" required><br>
 
             <label for="receiver">Receiver:</label>
             <input type="text" id="receiver" name="receiver" required><br>
@@ -38,6 +41,13 @@
             <button type="submit">Connect</button>
         </form>
     </div>
+    <div class="keyGenerator">
+        <h2>Generate Key Pair</h2>
+        <button id="generateKeyPair">Generate Key Pair</button>
+        <div id="privateKeyDisplay"></div>
+        <div id="publicKeyDisplay"></div>
+    </div>
+
     <script src="../static/js/handler.js"></script>
 
 </html>
