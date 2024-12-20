@@ -1,5 +1,6 @@
 use crate::block::Block;
 use crate::transaction::Transaction;
+use core::panic;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::SystemTime;
@@ -19,6 +20,14 @@ impl Blockchain {
             pending_transactions,
             utxo_set,
         }
+    }
+
+    pub fn chain(&self) -> &Vec<Block> {
+        &self.chain
+    }
+
+    pub fn pending_transactions(&self) -> &Vec<Transaction> {
+        &self.pending_transactions
     }
 
     pub fn add_pending_transaction(&mut self, transaction: Transaction) -> Result<(), &str> {
@@ -103,6 +112,14 @@ impl Blockchain {
         self.chain.last().unwrap().clone()
     }
 
+    pub fn replace_blockchain(&mut self, new_blockchain: &Blockchain) {
+        if new_blockchain.chain.len() > self.chain.len() {
+            self.chain = new_blockchain.chain.clone();
+            self.utxo_set = new_blockchain.utxo_set.clone();
+            self.pending_transactions = new_blockchain.pending_transactions.clone();
+        }
+    }
+
     pub fn add_block(&mut self, block: Block) {
         self.chain.push(block.clone());
         self.update_utxo_set(&block);
@@ -136,10 +153,6 @@ impl Blockchain {
 
     pub fn is_chain_empty(&self) -> bool {
         self.chain.is_empty()
-    }
-
-    pub fn is_pending_empty(&self) -> bool {
-        self.pending_transactions.is_empty()
     }
 
     fn update_utxo_set(&mut self, block: &Block) {

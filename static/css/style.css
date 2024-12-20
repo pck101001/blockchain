@@ -24,12 +24,25 @@ main {
     margin: 0 auto;
 }
 
-.description {
+.info {
     background: #fff;
     padding: 20px;
     margin-bottom: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.info .transaction-details {
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.info .transaction-details:hover {
+    overflow: visible;
+    white-space: normal;
 }
 
 .actions {
@@ -103,4 +116,33 @@ input[type="submit"]:hover {
     background-color: #ecf0f1;
     border-radius: 4px;
     text-align: center;
+}
+
+#nodes-list li {
+    margin-bottom: 5px;
+    padding: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+#blocks-container details {
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+#blocks-container summary {
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#blocks-container .block-details,
+.transaction-details {
+    display: none;
+    padding-left: 20px;
+}
+
+#blocks-container details[open] .block-details,
+#blocks-container details[open] .transaction-details {
+    display: block;
 }

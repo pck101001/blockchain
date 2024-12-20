@@ -13,9 +13,32 @@
         <h1>Blockchain Interface</h1>
     </header>
     <main>
-        <section class="description">
-            <p>Blockchain is a distributed database that maintains a continuously-growing list of records called blocks,
-                secured from tampering and revision.</p>
+        <section class="info">
+            <h2>What is Blockchain?</h2>
+            <p>Blockchain is a decentralized, distributed ledger that records the provenance of a digital asset. It is
+                maintained by a network of nodes without the need for a central authority.</p>
+            <p>Each block contains a list of transactions, a reference to the previous block, and a proof of work.</p>
+            <p>Transactions are signed with a private key and can be verified with the corresponding public key.</p>
+            <p>Miners compete to solve a cryptographic puzzle to add a new block to the chain and receive a reward.</p>
+            <p>Connect with other nodes to share information and maintain a consistent blockchain across the network.
+            </p>
+            <p>Use the interface below to interact with the blockchain, generate key pairs, send transactions, connect
+                with
+                nodes, create a genesis block, request coins from the faucet, check balance, and start mining.</p>
+            <hr>
+            <h2>Blockchain Information</h2>
+            <div id="blockchain-info">
+                <button id="update-info">Update Now</button>
+                <input type="range" id="updateIntervalSlider" min="1" max="60" step="1" value="30">
+                <label for="updateIntervalSlider">Update Interval (seconds): <span
+                        id="intervalDisplay">30</span></label>
+                <p>Last Updated:<span id="last-update"></span></p>
+                <h2>Nodes</h2>
+                <ul id="nodes-list"></ul>
+
+                <h2>Blockchain</h2>
+                <div id="blocks-container"></div>
+            </div>
         </section>
         <section class="actions">
             <div class="card">

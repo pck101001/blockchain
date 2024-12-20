@@ -64,12 +64,6 @@ impl NodeManager {
         }
     }
 
-    pub fn add_node_with_node(&mut self, node: Node) {
-        if !self.nodes.iter().any(|n| n.addr == node.addr) {
-            self.nodes.push(node);
-        }
-    }
-
     pub fn get_nodes_addr(&self) -> Vec<SocketAddr> {
         self.nodes.iter().map(|n| n.addr).collect()
     }

@@ -5,8 +5,8 @@ use rand::Rng;
 use reqwest;
 use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::time::{interval, Duration};
 
 pub async fn mine_block(states: AppStates, last_hash: String) {

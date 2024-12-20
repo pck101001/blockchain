@@ -141,3 +141,103 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Failed to generate key pair:', error);
     }
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    let updateInterval;
+    let intervalSeconds = 30;
+
+    function updateBlockchainInfo() {
+        fetch('/blockchain_info', { method: 'GET' })
+            .then(response => response.json())
+            .then(data => {
+                updateNodesList(data.nodes);
+                updateBlockchain(data.blockchain, data.pending_transactions);
+                document.getElementById('last-update').textContent = new Date().toLocaleString();
+            })
+            .catch(error => console.error('Error fetching blockchain info:', error));
+    }
+
+    function startAutoUpdate() {
+        clearInterval(updateInterval);
+        updateInterval = setInterval(updateBlockchainInfo, intervalSeconds * 1000);
+    }
+
+    function updateNodesList(nodes) {
+        const nodesList = document.getElementById('nodes-list');
+        nodesList.innerHTML = '';
+        nodes.forEach(node => {
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${node.addr}</strong> - Public Key: ${node.public_key || 'Unknown'}`;
+            nodesList.appendChild(li);
+        });
+    }
+
+    function updateBlockchain(chain, pendingTransactions) {
+        const container = document.getElementById('blocks-container');
+        container.innerHTML = '';
+        chain.forEach(block => {
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            summary.innerHTML = `<strong>Block ${block.index}</strong> - Miner: ${block.miner} - Time: ${new Date(block.timestamp).toLocaleString()}`;
+            details.appendChild(summary);
+
+            const blockDetails = document.createElement('div');
+            blockDetails.className = 'block-details';
+            blockDetails.innerHTML = `
+                <p><strong>Timestamp:</strong> ${new Date(block.timestamp).toLocaleString()}</p>
+                <p><strong>Previous Hash:</strong> ${block.previous_hash}</p>
+                <p><strong>Merkle Hash:</strong> ${block.merkle_hash}</p>
+                <p><strong>Nonce:</strong> ${block.nonce}</p>
+                <p><strong>Mining Difficulty:</strong> ${block.mining_difficulty}</p>
+                <h3>Transactions:</h3>
+            `;
+            block.data.forEach(tx => {
+                const txDetails = document.createElement('details');
+                const txSummary = document.createElement('summary');
+                txSummary.innerHTML = `<strong>Transaction ID:</strong> ${tx.txid}`;
+                txDetails.appendChild(txSummary);
+
+                const txInfo = document.createElement('div');
+                txInfo.className = 'transaction-details';
+                txInfo.innerHTML = `
+                    <p><strong>Sender:</strong> ${tx.raw_data.sender}</p>
+                    <p><strong>Receiver:</strong> ${tx.raw_data.receiver}</p>
+                    <p><strong>Amount:</strong> ${tx.raw_data.amount}</p>
+                    <p><strong>Signature:</strong> ${tx.signature || 'Not signed'}</p>
+                `;
+                txDetails.appendChild(txInfo);
+                blockDetails.appendChild(txDetails);
+            });
+            details.appendChild(blockDetails);
+            container.appendChild(details);
+        });
+
+        if (pendingTransactions.length > 0) {
+            const pendingHeader = document.createElement('h3');
+            pendingHeader.textContent = 'Pending Transactions:';
+            container.appendChild(pendingHeader);
+            pendingTransactions.forEach(tx => {
+                const txDiv = document.createElement('div');
+                txDiv.textContent = `Pending TX: ${tx.txid} - Amount: ${tx.raw_data.amount} from ${tx.raw_data.sender} to ${tx.raw_data.receiver}`;
+                container.appendChild(txDiv);
+            });
+        }
+    }
+
+    document.getElementById('update-info').addEventListener('click', () => {
+        updateBlockchainInfo();
+        startAutoUpdate();
+    });
+
+    document.getElementById('updateIntervalSlider').addEventListener('input', (e) => {
+        intervalSeconds = parseInt(e.target.value);
+        document.getElementById('intervalDisplay').textContent = intervalSeconds;
+    });
+
+    document.getElementById('updateIntervalSlider').addEventListener('change', () => {
+        startAutoUpdate();
+    });
+
+    updateBlockchainInfo();
+    startAutoUpdate();
+});

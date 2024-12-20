@@ -1,4 +1,3 @@
-use crate::block;
 use crate::utils::{
     is_key_match, private_key_from_string, public_key_from_string, AppStates, ConnectRequest,
     Heartbeat, KeyPair, NewBlockRequest, NewBlockResponse, RequestWithKey, SyncRequest,
@@ -6,6 +5,7 @@ use crate::utils::{
 };
 use crate::{
     block::Block,
+    blockchain::Blockchain,
     mining,
     node::NodeManager,
     transaction,
@@ -90,6 +90,17 @@ pub async fn connect_handler(
             )
             .await;
         });
+        let local_addr_clone = local_addr.clone();
+        let s = { states.blockchain.lock().unwrap().is_chain_empty() };
+        let last_index = match s {
+            true => None,
+            false => Some(states.blockchain.lock().unwrap().last_index()),
+        };
+        tokio::spawn(async move {
+            if let Err(e) = send_sync_request(local_addr_clone, des_addr, None, last_index).await {
+                println!("Failed to request full blockchain: {}", e);
+            }
+        });
     } else if des_addr == local_addr {
         let mut nodes = states.nodes.lock().unwrap();
         let exists = nodes.exists(src_addr);
@@ -105,28 +116,6 @@ pub async fn connect_handler(
                     )
                     .await;
                 });
-            } else {
-                println!("start initial sync with {:?}", src_addr);
-                // let blockchain_clone = { states.blockchain.lock().unwrap().clone() };
-                // let nodes_clone = { states.nodes.lock().unwrap().get_nodes() };
-
-                // tokio::spawn(async move {
-                //     let client = reqwest::Client::new();
-                //     let res = client
-                //         .post(format!("http://{}/sync", src_addr))
-                //         .json(&SyncRequest {
-                //             blockchain: Some(blockchain_clone),
-                //             nodes: Some(nodes_clone),
-                //             is_response: false,
-                //             src_addr: local_addr,
-                //         })
-                //         .send()
-                //         .await;
-                //     match res {
-                //         Ok(_) => println!("sync request sent to {:?}", src_addr),
-                //         Err(e) => println!("error sending sync request: {:?}", e),
-                //     }
-                // });
             }
             if !request.is_broadcast {
                 let nodes = { nodes.get_nodes_addr() };
@@ -157,51 +146,96 @@ pub async fn sync_handler(
     Json(request): Json<SyncRequest>,
 ) -> impl IntoResponse {
     println!("Sync Request received from {:?}", request.src_addr);
-    let mut response = SyncRequest {
-        blockchain: Some(states.blockchain.lock().unwrap().clone()),
-        nodes: Some(states.nodes.lock().unwrap().get_nodes()),
-        is_response: true,
-        src_addr: { states.nodes.lock().unwrap().get_local_addr() },
-    };
-    if request.blockchain.is_some() {
-        let last_index = { states.blockchain.lock().unwrap().last_index() };
-        println!("last index: {:?}", last_index);
-        println!(
-            "received blockchain last index: {:?}",
-            request.blockchain.as_ref().unwrap().last_index()
-        );
-        if request.blockchain.as_ref().unwrap().last_index() > last_index {
-            let mut blockchain = states.blockchain.lock().unwrap();
-            *blockchain = request.blockchain.unwrap();
-            response.blockchain = Option::None;
-        }
-    }
-    if request.nodes.is_some() {
-        let mut nodes_manager = states.nodes.lock().unwrap();
-        println!("received nodes: {:?}", request.nodes.as_ref().unwrap());
-        println!("current nodes: {:?}", nodes_manager.get_nodes_addr());
-        for node in request.nodes.as_ref().unwrap() {
-            nodes_manager.add_node_with_node(node.clone());
-        }
-    }
-    if !request.is_response {
-        println!("sending sync response to {:?}", request.src_addr);
-        tokio::spawn(async move {
-            let client = reqwest::Client::new();
-            let res = client
-                .post(format!("http://{}/sync", request.src_addr))
-                .json(&response)
-                .send()
-                .await;
-            match res {
-                Ok(_) => println!("sync response sent to {:?}", request.src_addr),
-                Err(e) => println!("error sending sync response: {:?}", e),
-            }
-        });
-    }
-    Json(serde_json::json!({"status":"sync request received"}))
-}
+    let local_addr = { states.nodes.lock().unwrap().get_local_addr() };
+    let mut blockchain = { states.blockchain.lock().unwrap() };
 
+    println!(
+        "local blockchain empty: {:?},request last index: {:?}",
+        blockchain.is_chain_empty(),
+        request.last_block_index
+    );
+
+    match (blockchain.is_chain_empty(), request.last_block_index) {
+        // 双方都没有创世块
+        (true, None) => {
+            Json(serde_json::json!({"status":"Two empty blockchains, add genesis block first!"}))
+        }
+        // 本地没有创世块，但请求方有
+        (true, Some(_)) => {
+            if let Some(remote_blockchain) = request.blockchain {
+                blockchain.replace_blockchain(&remote_blockchain);
+                Json(serde_json::json!({"status":"Synced"}))
+            } else {
+                let local_addr_clone = local_addr;
+                tokio::spawn(async move {
+                    if let Err(e) =
+                        send_sync_request(local_addr_clone, request.src_addr, None, None).await
+                    {
+                        println!("Failed to request full blockchain: {}", e);
+                    }
+                });
+                Json(serde_json::json!({"status":"Requested full blockchain"}))
+            }
+        }
+        // 本地有创世块，但请求方没有
+        (false, None) => {
+            let local_addr_clone = local_addr;
+            let blockchain_clone = blockchain.clone();
+            let last_index = blockchain.last_index();
+            tokio::spawn(async move {
+                if let Err(e) = send_sync_request(
+                    local_addr_clone,
+                    request.src_addr,
+                    Some(blockchain_clone),
+                    Some(last_index),
+                )
+                .await
+                {
+                    println!("Failed to send local blockchain: {}", e);
+                }
+            });
+            Json(serde_json::json!({"status":"Sent local blockchain"}))
+        }
+        // 两者都存在链，进行比较
+        (false, Some(remote_index)) => {
+            if remote_index > blockchain.last_index() {
+                if let Some(remote_blockchain) = request.blockchain {
+                    blockchain.replace_blockchain(&remote_blockchain);
+                    Json(serde_json::json!({"status":"Synced"}))
+                } else {
+                    let local_addr_clone = local_addr;
+                    tokio::spawn(async move {
+                        if let Err(e) =
+                            send_sync_request(local_addr_clone, request.src_addr, None, None).await
+                        {
+                            println!("Failed to request full blockchain: {}", e);
+                        }
+                    });
+                    Json(serde_json::json!({"status":"Requested full blockchain"}))
+                }
+            } else if remote_index < blockchain.last_index() {
+                let local_addr_clone = local_addr;
+                let blockchain_clone = blockchain.clone();
+                let last_index = blockchain.last_index();
+                tokio::spawn(async move {
+                    if let Err(e) = send_sync_request(
+                        local_addr_clone,
+                        request.src_addr,
+                        Some(blockchain_clone),
+                        Some(last_index),
+                    )
+                    .await
+                    {
+                        println!("Failed to send local blockchain: {}", e);
+                    }
+                });
+                Json(serde_json::json!({"status":"Sent local blockchain"}))
+            } else {
+                Json(serde_json::json!({"status":"Same Length"}))
+            }
+        }
+    }
+}
 pub async fn heartbeat_handler(
     State(states): State<AppStates>,
     Json(heartbeat): Json<Heartbeat>,
@@ -506,11 +540,35 @@ pub async fn miner_keys(State(states): State<AppStates>) -> impl IntoResponse {
     })
 }
 
-// async fn process_votes(states: Arc<AppStates>) {
-//     let timeout_duration = Duration::from_secs(10);
-//     loop {
-//         let mut votes = states.votes.lock().unwrap();
-//         let now = SystemTime::now();
-//         votes.retain()
-//     }
-// }
+pub async fn blockchain_info(State(states): State<AppStates>) -> impl IntoResponse {
+    let blockchain = { states.blockchain.lock().unwrap() };
+    let nodes = { states.nodes.lock().unwrap().get_nodes() };
+    Json(serde_json::json!({
+        "nodes": nodes,
+        "blockchain": blockchain.chain(),
+        "pending_transactions": blockchain.pending_transactions(),
+    }))
+}
+
+async fn send_sync_request(
+    local_addr: SocketAddr,
+    target_addr: SocketAddr,
+    blockchain: Option<Blockchain>,
+    last_index: Option<u64>,
+) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .post(format!("http://{}/sync", target_addr))
+        .json(&SyncRequest {
+            blockchain,
+            last_block_index: last_index,
+            src_addr: local_addr,
+        })
+        .send()
+        .await;
+
+    match res {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Network error: {}", e)),
+    }
+}

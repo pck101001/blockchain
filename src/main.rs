@@ -4,12 +4,10 @@ use axum::{
     Router,
 };
 use axum_server::Server;
-use std::collections::HashMap;
 use std::env;
 use std::process;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
 use tower_http::services::ServeDir;
 
 mod block;
@@ -63,6 +61,7 @@ async fn main() {
         .route("/miner_keys", get(server::miner_keys))
         .route("/new_block", post(server::new_block_handler))
         .route("/generate_key_pair", get(server::generate_key_pair))
+        .route("/blockchain_info", get(server::blockchain_info))
         .with_state(states);
     let local_public_key = nodes.lock().unwrap().get_local_public_key();
     tokio::spawn(server::heartbeat(

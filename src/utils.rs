@@ -1,16 +1,10 @@
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
 
-use crate::{
-    block::Block,
-    blockchain::Blockchain,
-    node::{Node, NodeManager},
-};
+use crate::{block::Block, blockchain::Blockchain, node::NodeManager};
 // Request Assisting Structures & Functions
 pub struct Config {
     addr: SocketAddr,
@@ -65,9 +59,8 @@ pub struct TransactionRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SyncRequest {
+    pub last_block_index: Option<u64>,
     pub blockchain: Option<Blockchain>,
-    pub nodes: Option<Vec<Node>>,
-    pub is_response: bool,
     pub src_addr: SocketAddr,
 }
 

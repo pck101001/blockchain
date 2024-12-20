@@ -1,7 +1,7 @@
 use secp256k1::ecdsa::Signature;
 use secp256k1::hashes::{sha256, Hash};
+use secp256k1::SecretKey;
 use secp256k1::{Message, Secp256k1};
-use secp256k1::{PublicKey, SecretKey};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::time::SystemTime;
