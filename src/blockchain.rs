@@ -51,7 +51,6 @@ impl Blockchain {
     }
 
     pub fn balance(&self, public_key: &str) -> (f64, f64) {
-        let public_key = public_key.trim().trim_start_matches("0x");
         let fixed_balance = self
             .utxo_set
             .get(public_key)
@@ -64,10 +63,14 @@ impl Blockchain {
                 tx.raw_data().sender == *public_key || tx.raw_data().receiver == *public_key
             })
             .map(|tx| {
-                if tx.raw_data().sender == *public_key {
+                if tx.raw_data().sender == *public_key && tx.raw_data().receiver != *public_key {
                     -tx.raw_data().amount
-                } else {
+                } else if tx.raw_data().receiver == *public_key
+                    && tx.raw_data().sender != *public_key
+                {
                     tx.raw_data().amount
+                } else {
+                    0.0
                 }
             })
             .sum();
@@ -111,7 +114,7 @@ impl Blockchain {
     }
 
     pub fn mine_block(&mut self, miner: &str, nonce: u64, difficulty: usize) -> Block {
-        let coinbase_tx = Transaction::coin_base_reward(miner);
+        let coinbase_tx = Transaction::coinbase_reward(miner);
         let index = self.chain.len() as u64;
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)

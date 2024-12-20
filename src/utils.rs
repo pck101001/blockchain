@@ -42,7 +42,6 @@ pub struct AppStates {
     pub blockchain: Arc<Mutex<Blockchain>>,
     pub nodes: Arc<Mutex<NodeManager>>,
     pub mining_state: Arc<AtomicBool>,
-    pub votes: Arc<Mutex<HashMap<String, (HashMap<String, bool>, SystemTime)>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

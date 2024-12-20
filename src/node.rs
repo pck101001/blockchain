@@ -87,7 +87,8 @@ impl NodeManager {
     }
 
     pub fn get_local_public_key(&self) -> String {
-        self.nodes[0].public_key.clone().unwrap_or(String::from(""))
+        let key = self.nodes[0].public_key.clone().unwrap_or(String::from(""));
+        String::from("0x") + &key
     }
 
     pub fn exists(&self, addr: SocketAddr) -> bool {

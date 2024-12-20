@@ -41,7 +41,7 @@ pub async fn mine_block(states: AppStates, last_hash: String) {
             let new_block = blockchain.mine_block(&miner, nonce, current_difficulty);
             let nodes = { states.nodes.lock().unwrap().get_nodes_addr() };
             blockchain.add_block(new_block.clone());
-            println!("New Block Mined: {:?}", new_block);
+            println!("New Block Mined, index: {}", new_block.index());
             tokio::spawn(async move {
                 broadcast_new_block(new_block, last_hash, nodes, false).await;
             });

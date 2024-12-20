@@ -36,7 +36,7 @@ impl Transaction {
         }
     }
 
-    pub fn coin_base_reward(receiver: &str) -> Self {
+    pub fn coinbase_reward(receiver: &str) -> Self {
         let raw_transaction = RawTransaction {
             sender: "0".to_string(),
             receiver: receiver.to_owned(),

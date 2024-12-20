@@ -268,7 +268,7 @@ pub async fn faucet_handler(
         Err(e) => return Json(serde_json::json!({"status":e})),
     };
     let receiver = format!("0x{}", hex::encode(receiver_public_key.serialize()));
-    let tx = Transaction::coin_base_reward(&receiver);
+    let tx = Transaction::coinbase_reward(&receiver);
     println!("Sent $10 to {}\n tx:{:?}", receiver, tx);
     if let Err(e) = states
         .blockchain
@@ -293,7 +293,9 @@ pub async fn balance_handler(
 ) -> impl IntoResponse {
     let public_key = match public_key_from_string(&request.public_key) {
         Ok(public_key) => public_key,
-        Err(e) => return Json(serde_json::json!({"status":e})),
+        Err(e) => {
+            return Json(serde_json::json!({"status":e, "fixed_balance": 0, "pending_balance": 0}))
+        }
     };
     let addr = format!("0x{}", hex::encode(public_key.serialize()));
     let balance = states.blockchain.lock().unwrap().balance(&addr);
@@ -346,7 +348,7 @@ pub async fn new_block_handler(
         if *last_hash == blockchain.last_hash() {
             if mining::verify_answer(last_hash, nodes_count, new_block.nonce()) {
                 blockchain.add_block(new_block.clone());
-                println!("New block added: {:?}", new_block);
+                println!("New block added, Index: {}", new_block.index());
             } else {
                 println!("Invalid Nonce Answer");
                 response = NewBlockResponse::NonceError;
@@ -476,7 +478,7 @@ fn pack_transaction(transaction_request: TransactionRequest) -> Result<Transacti
     };
 
     if is_key_match(&sender_private_key, &sender_public_key).is_err() {
-        return Err("invalid sender key pair".to_string());
+        return Err("Invalid sender key pair".to_string());
     }
 
     let raw_transaction = RawTransaction {
@@ -491,7 +493,7 @@ fn pack_transaction(transaction_request: TransactionRequest) -> Result<Transacti
     };
     let transaction = Transaction::new(raw_transaction.clone(), &sender_private_key);
     if transaction.verify().is_err() {
-        return Err("invalid transaction".to_string());
+        return Err("Invalid transaction".to_string());
     }
     Ok(transaction)
 }

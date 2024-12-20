@@ -16,6 +16,9 @@ document.getElementById('transactionForm').addEventListener('submit', function (
         .then(response => response.json())
         .then(data => {
             console.log('Success:', data);
+            if (data.status) {
+                alert(data.status);
+            }
         })
         .catch((error) => {
             console.error('Error:', error);
@@ -40,6 +43,9 @@ document.getElementById('connectForm').addEventListener('submit', function (even
         .then(response => response.json())
         .then(data => {
             console.log('Success:', data);
+            if (data.status) {
+                alert(data.status);
+            }
         })
         .catch((error) => {
             console.error('Error:', error);

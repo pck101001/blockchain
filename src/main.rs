@@ -34,15 +34,10 @@ async fn main() {
     let blockchain = Arc::new(Mutex::new(blockchain::Blockchain::new()));
     let nodes = Arc::new(Mutex::new(node::NodeManager::new(&local_addr)));
     let mining_state = Arc::new(AtomicBool::new(false));
-    let votes = Arc::new(Mutex::new(HashMap::<
-        String,
-        (HashMap<String, bool>, SystemTime),
-    >::new()));
     let states = utils::AppStates {
         blockchain: blockchain.clone(),
         nodes: nodes.clone(),
         mining_state: mining_state.clone(),
-        votes: votes.clone(),
     };
     let app = Router::new()
         .nest_service("/static", ServeDir::new("static"))
