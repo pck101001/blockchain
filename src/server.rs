@@ -1,3 +1,4 @@
+use crate::blockchain;
 use crate::utils::{
     is_key_match, private_key_from_string, public_key_from_string, AppStates, ConnectRequest,
     Heartbeat, KeyPair, NewBlockRequest, NewBlockResponse, RequestWithKey, SyncRequest,
@@ -91,8 +92,8 @@ pub async fn connect_handler(
             .await;
         });
         let local_addr_clone = local_addr.clone();
-        let s = { states.blockchain.lock().unwrap().is_chain_empty() };
-        let last_index = match s {
+        let is_chain_empty = { states.blockchain.lock().unwrap().is_chain_empty() };
+        let last_index = match is_chain_empty {
             true => None,
             false => Some(states.blockchain.lock().unwrap().last_index()),
         };
@@ -241,15 +242,39 @@ pub async fn heartbeat_handler(
     Json(heartbeat): Json<Heartbeat>,
 ) -> impl IntoResponse {
     let addr = heartbeat.addr;
-    let mut nodes = states.nodes.lock().unwrap();
-    nodes.update_node(addr, heartbeat.public_key.clone());
+    {
+        states
+            .nodes
+            .lock()
+            .unwrap()
+            .update_node(addr, heartbeat.public_key.clone())
+    };
+    let is_chain_empty = { states.blockchain.lock().unwrap().is_chain_empty() };
+    let last_index;
+    match is_chain_empty {
+        true => last_index = Option::None,
+        false => last_index = Some(states.blockchain.lock().unwrap().last_index()),
+    }
+    if last_index != heartbeat.last_index {
+        let local_addr = { states.nodes.lock().unwrap().get_local_addr() };
+        tokio::spawn(async move {
+            if let Err(e) = send_sync_request(local_addr, addr, None, last_index).await {
+                println!("Failed to request full blockchain: {}", e);
+            }
+        });
+        println!("Sent sync request to {:?}", addr);
+    }
     println!("Received heartbeat from {:?}", addr);
-    println!("Current nodes: {:?}", nodes.get_nodes_addr());
+    println!(
+        "Current nodes: {:?}",
+        states.nodes.lock().unwrap().get_nodes_addr()
+    );
     Json(serde_json::json!({"status":"received"}))
 }
 
 pub async fn heartbeat(
     node_manager: Arc<Mutex<NodeManager>>,
+    blockchain: Arc<Mutex<Blockchain>>,
     local_addr: SocketAddr,
     local_public_key: String,
 ) {
@@ -261,6 +286,12 @@ pub async fn heartbeat(
             .unwrap()
             .remove_expired_nodes(Duration::from_secs(10));
         let nodes = node_manager.lock().unwrap().get_nodes_addr();
+        let last_index;
+        let is_chain_empty = { blockchain.lock().unwrap().is_chain_empty() };
+        match is_chain_empty {
+            true => last_index = Option::None,
+            false => last_index = Some(blockchain.lock().unwrap().last_index()),
+        }
         for node_addr in nodes {
             if node_addr != local_addr {
                 let client = reqwest::Client::new();
@@ -269,6 +300,7 @@ pub async fn heartbeat(
                     .json(&Heartbeat {
                         addr: local_addr,
                         public_key: local_public_key.clone(),
+                        last_index,
                     })
                     .send()
                     .await;

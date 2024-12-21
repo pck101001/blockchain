@@ -85,6 +85,7 @@ pub enum NewBlockResponse {
 pub struct Heartbeat {
     pub addr: SocketAddr,
     pub public_key: String,
+    pub last_index: Option<u64>,
 }
 
 #[derive(Serialize)]

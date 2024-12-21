@@ -66,6 +66,7 @@ async fn main() {
     let local_public_key = nodes.lock().unwrap().get_local_public_key();
     tokio::spawn(server::heartbeat(
         nodes.clone(),
+        blockchain.clone(),
         local_addr,
         local_public_key,
     ));
