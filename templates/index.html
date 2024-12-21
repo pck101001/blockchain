@@ -109,14 +109,17 @@
                 <div id="balanceDisplay"></div>
             </div>
             <div class="card">
-                <h2>Start Mining</h2>
+                <h2>Mining State</h2>
                 <form id="miningForm">
                     <div>
                         <label for="minerKeys">Miner Keys:</label>
                         <div id="minerPrivateKeyDisplay"></div>
                         <div id="minerPublicKeyDisplay"></div>
                     </div>
-                    <button type="submit">Start Mining</button>
+                    <label class="switch">
+                        <input type="checkbox" id="miningSwitch">
+                        <span class="slider"></span>
+                    </label>
                 </form>
             </div>
         </section>

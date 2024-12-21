@@ -1,8 +1,7 @@
-use crate::blockchain;
 use crate::utils::{
     is_key_match, private_key_from_string, public_key_from_string, AppStates, ConnectRequest,
-    Heartbeat, KeyPair, NewBlockRequest, NewBlockResponse, RequestWithKey, SyncRequest,
-    TransactionRequest,
+    Heartbeat, KeyPair, MiningStateRequest, NewBlockRequest, NewBlockResponse, RequestWithKey,
+    SyncRequest, TransactionRequest,
 };
 use crate::{
     block::Block,
@@ -372,7 +371,15 @@ pub async fn balance_handler(
     }))
 }
 
-pub async fn mine_handler(State(states): State<AppStates>) -> impl IntoResponse {
+pub async fn mine_handler(
+    State(states): State<AppStates>,
+    Json(mining_state): Json<MiningStateRequest>,
+) -> impl IntoResponse {
+    let state_control = mining_state.state_control;
+    if state_control == Some(String::from("OFF")) {
+        states.mining_state.store(false, Ordering::SeqCst);
+        return Json(serde_json::json!({"status":"Mining Stopped"}));
+    }
     if states.blockchain.lock().unwrap().is_chain_empty() {
         return Json(serde_json::json!({"status":"Add Genesis Block First!"}));
     }
@@ -381,10 +388,9 @@ pub async fn mine_handler(State(states): State<AppStates>) -> impl IntoResponse 
         interval(Duration::from_secs(1)).tick().await;
         println!("Mining in progress, Stop and Restart Mining with new request");
     }
-    let last_hash = { states.blockchain.lock().unwrap().last_hash() };
     states.mining_state.store(true, Ordering::SeqCst);
     tokio::spawn(async move {
-        mining::mine_block(states.clone(), last_hash.clone()).await;
+        mining::mine_block(states.clone()).await;
     });
     Json(serde_json::json!({"status":"Mining started"}))
 }
@@ -398,10 +404,6 @@ pub async fn new_block_handler(
         blockchain.add_genesis_block(request.new_block.clone());
         println!("Genesis block added: {:?}", blockchain.last_block());
         return Json(serde_json::json!({"status":"Genesis block added"}));
-    }
-    if states.mining_state.load(Ordering::SeqCst) {
-        states.mining_state.store(false, Ordering::SeqCst);
-        println!("Mining Stopped");
     }
     let new_block = &request.new_block;
     let last_hash = &request.last_hash;
@@ -427,7 +429,6 @@ pub async fn new_block_handler(
         println!("Index Value Mismatch");
         response = NewBlockResponse::SyncRequest;
     }
-
     match response {
         NewBlockResponse::Success => Json(serde_json::json!({"status":"New block added"})),
         NewBlockResponse::SyncRequest => Json(serde_json::json!({"status":"Need Sync Blockchain"})),

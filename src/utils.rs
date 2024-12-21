@@ -82,6 +82,11 @@ pub enum NewBlockResponse {
     HashError,
 }
 #[derive(Serialize, Deserialize, Debug)]
+pub struct MiningStateRequest {
+    pub state_control: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Heartbeat {
     pub addr: SocketAddr,
     pub public_key: String,

@@ -93,21 +93,6 @@ document.getElementById('faucetForm').addEventListener('submit', async (e) => {
         alert('Faucet request failed: ' + error.message);
     }
 });
-document.getElementById('miningForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const publicKey = document.getElementById('minerPublicKeyDisplay').value;
-    try {
-        const response = await fetch('/mine', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ public_key: publicKey })
-        });
-        const result = await response.json();
-        alert(result.status);
-    } catch (error) {
-        alert('Mining failed to start: ' + error.message);
-    }
-});
 document.getElementById('balanceForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const publicKey = document.getElementById('publicKeyBalance').value;
@@ -240,4 +225,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateBlockchainInfo();
     startAutoUpdate();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const miningSwitch = document.getElementById('miningSwitch');
+
+    miningSwitch.addEventListener('change', function () {
+        const stateControl = this.checked ? 'ON' : 'OFF';
+        fetch('/mine', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ state_control: stateControl })
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Mining state updated:', data);
+                alert(data.status);
+            })
+            .catch(error => {
+                console.error('Error updating mining state:', error);
+                alert('Failed to update mining state');
+            });
+    });
 });
