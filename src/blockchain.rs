@@ -1,36 +1,37 @@
 use crate::block::Block;
 use crate::transaction::Transaction;
-use core::panic;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Blockchain {
     chain: Vec<Block>,
     utxo_set: HashMap<String, Vec<(String, f64)>>,
     pending_transactions: Vec<Transaction>,
 }
+
 impl Blockchain {
     pub fn new() -> Self {
-        let chain = Vec::new();
-        let pending_transactions = Vec::new();
-        let utxo_set = HashMap::new();
         Blockchain {
-            chain,
-            pending_transactions,
-            utxo_set,
+            chain: Vec::new(),
+            pending_transactions: Vec::new(),
+            utxo_set: HashMap::new(),
         }
     }
 
-    pub fn chain(&self) -> &Vec<Block> {
+    pub fn chain(&self) -> &[Block] {
         &self.chain
     }
 
-    pub fn pending_transactions(&self) -> &Vec<Transaction> {
+    pub fn pending_transactions(&self) -> &[Transaction] {
         &self.pending_transactions
     }
 
-    pub fn add_pending_transaction(&mut self, transaction: Transaction) -> Result<(), &str> {
+    pub fn add_pending_transaction(
+        &mut self,
+        transaction: Transaction,
+    ) -> Result<(), &'static str> {
         if self.is_chain_empty() {
             return Err("Add Genesis Block First!");
         }
@@ -38,8 +39,11 @@ impl Blockchain {
         if transaction.raw_data().time < last_block_time {
             return Err("Transaction is too old");
         }
-        let txid = transaction.txid();
-        if self.pending_transactions.iter().any(|tx| tx.txid() == txid) {
+        if self
+            .pending_transactions
+            .iter()
+            .any(|tx| tx.txid() == transaction.txid())
+        {
             return Err("Transaction already exists");
         }
         if !transaction.raw_data().is_coinbase
@@ -52,10 +56,10 @@ impl Blockchain {
     }
 
     pub fn add_genesis_block(&mut self, block: Block) {
-        if !self.chain.is_empty() {
-            println!("Genesis block already exists");
-        } else {
+        if self.chain.is_empty() {
             self.chain.push(block);
+        } else {
+            log::warn!("Genesis block already exists, ignoring new block");
         }
     }
 
@@ -63,81 +67,67 @@ impl Blockchain {
         let fixed_balance = self
             .utxo_set
             .get(public_key)
-            .map(|bills| bills.iter().map(|(_, amount)| amount).sum())
-            .unwrap_or(0.0);
-        let pending_balance = self
-            .pending_transactions
-            .iter()
-            .filter(|tx| {
-                tx.raw_data().sender == *public_key || tx.raw_data().receiver == *public_key
-            })
-            .map(|tx| {
-                if tx.raw_data().sender == *public_key && tx.raw_data().receiver != *public_key {
-                    -tx.raw_data().amount
-                } else if tx.raw_data().receiver == *public_key
-                    && tx.raw_data().sender != *public_key
-                {
-                    tx.raw_data().amount
-                } else {
-                    0.0
-                }
-            })
-            .sum();
+            .map_or(0.0, |bills| bills.iter().map(|(_, amount)| amount).sum());
+        let pending_balance = self.pending_transactions.iter().fold(0.0, |acc, tx| {
+            acc + if tx.raw_data().sender == public_key {
+                -tx.raw_data().amount
+            } else if tx.raw_data().receiver == public_key {
+                tx.raw_data().amount
+            } else {
+                0.0
+            }
+        });
         (fixed_balance, pending_balance)
     }
 
-    pub fn total_balance(&self, public_key: &String) -> f64 {
-        let (fixed_balance, pending_balance) = self.balance(public_key);
-        fixed_balance + pending_balance
+    pub fn total_balance(&self, public_key: &str) -> f64 {
+        let (fixed, pending) = self.balance(public_key);
+        fixed + pending
     }
 
     pub fn last_index(&self) -> u64 {
-        if self.chain.is_empty() {
-            panic!("Add Genesis Block First!");
-        }
-        self.chain.last().unwrap().index()
+        self.chain.last().map(|b| b.index()).unwrap_or_else(|| {
+            log::error!("Attempted to access last index of an empty blockchain");
+            0
+        })
     }
 
     pub fn last_hash(&self) -> String {
-        if self.chain.is_empty() {
-            panic!("Add Genesis Block First!");
-        }
-        self.chain.last().unwrap().block_hash()
+        self.chain
+            .last()
+            .map(|b| b.block_hash())
+            .unwrap_or_else(|| {
+                log::error!("Attempted to access last hash of an empty blockchain");
+                String::from("0")
+            })
     }
 
-    pub fn last_block(&self) -> Block {
-        if self.chain.is_empty() {
-            panic!("Add Genesis Block First!");
-        }
-        self.chain.last().unwrap().clone()
+    pub fn last_block(&self) -> Option<&Block> {
+        self.chain.last()
     }
 
     pub fn replace_blockchain(&mut self, new_blockchain: &Blockchain) {
         if new_blockchain.chain.len() > self.chain.len() {
-            self.chain = new_blockchain.chain.clone();
-            self.utxo_set = new_blockchain.utxo_set.clone();
-            self.pending_transactions = new_blockchain.pending_transactions.clone();
+            *self = new_blockchain.clone();
         }
     }
 
     pub fn add_block(&mut self, block: Block) {
         self.chain.push(block.clone());
         self.update_utxo_set(&block);
-        for tx in block.data().iter() {
-            let txid = tx.txid();
-            self.pending_transactions.retain(|tx| tx.txid() != txid);
-        }
-        println!("Block added: {:?}", block);
+        self.pending_transactions
+            .retain(|tx| !block.data().iter().any(|b_tx| b_tx.txid() == tx.txid()));
+        log::info!("Block added: {:?}", block);
     }
 
     pub fn mine_block(&mut self, miner: &str, nonce: u64, difficulty: usize) -> Block {
         let coinbase_tx = Transaction::coinbase_reward(miner);
         let index = self.chain.len() as u64;
         let timestamp = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
             .as_millis();
-        let previous_hash = self.chain.last().unwrap().block_hash();
+        let previous_hash = self.last_hash();
         let mut data = vec![coinbase_tx];
         data.append(&mut self.pending_transactions.clone());
         Block::new(
@@ -146,7 +136,7 @@ impl Blockchain {
             previous_hash,
             nonce,
             data,
-            String::from(miner),
+            miner.to_string(),
             difficulty,
         )
     }
@@ -156,17 +146,22 @@ impl Blockchain {
     }
 
     fn update_utxo_set(&mut self, block: &Block) {
-        for tx in block.data().iter() {
+        for tx in block.data() {
             let tx_data = tx.raw_data();
-            let sender = tx_data.sender.clone();
-            let receiver = tx_data.receiver.clone();
+            let sender = &tx_data.sender;
+            let receiver = &tx_data.receiver;
             let amount = tx_data.amount;
-            let txid = tx.txid();
-            let bills = self.utxo_set.entry(sender).or_default();
-            bills.push((txid.clone(), -amount));
-            let bills = self.utxo_set.entry(receiver).or_default();
-            bills.push((txid.clone(), amount));
+            let txid = tx.txid().to_string();
+
+            self.utxo_set
+                .entry(sender.to_string())
+                .or_default()
+                .push((txid.clone(), -amount));
+            self.utxo_set
+                .entry(receiver.to_string())
+                .or_default()
+                .push((txid, amount));
         }
-        println!("UTXO Set Updated: {:?}", self.utxo_set);
+        log::debug!("UTXO Set Updated: {:?}", self.utxo_set);
     }
 }

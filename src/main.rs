@@ -20,23 +20,31 @@ mod utils;
 
 #[tokio::main]
 async fn main() {
+    // Initialize logger
     env_logger::Builder::new()
         .filter_level(log::LevelFilter::Info)
         .init();
+
+    // Parse arguments
     let local_addr = utils::Config::new(env::args())
-        .unwrap_or_else(|err| {
-            eprintln!("Problem parsing arguments: {}", err);
+        .map_err(|err| {
+            log::error!("Failed to parse arguments: {}", err);
             process::exit(1);
         })
+        .unwrap()
         .addr();
+
     let blockchain = Arc::new(Mutex::new(blockchain::Blockchain::new()));
     let nodes = Arc::new(Mutex::new(node::NodeManager::new(&local_addr)));
     let mining_state = Arc::new(AtomicBool::new(false));
+
     let states = utils::AppStates {
         blockchain: blockchain.clone(),
         nodes: nodes.clone(),
         mining_state: mining_state.clone(),
     };
+
+    // Initialize the server
     let app = Router::new()
         .nest_service("/static", ServeDir::new("static"))
         .route(
@@ -63,15 +71,23 @@ async fn main() {
         .route("/generate_key_pair", get(server::generate_key_pair))
         .route("/blockchain_info", get(server::blockchain_info))
         .with_state(states);
+
+    // Get local public key
     let local_public_key = nodes.lock().unwrap().get_local_public_key();
+
+    // Start the heartbeat
     tokio::spawn(server::heartbeat(
         nodes.clone(),
         blockchain.clone(),
         local_addr,
         local_public_key,
     ));
-    Server::bind(local_addr)
+
+    // Start the server
+    if let Err(e) = Server::bind(local_addr)
         .serve(app.into_make_service())
         .await
-        .unwrap();
+    {
+        log::error!("Failed to start server: {}", e);
+    }
 }

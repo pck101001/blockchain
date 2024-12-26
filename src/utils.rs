@@ -5,25 +5,23 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
 use crate::{block::Block, blockchain::Blockchain, node::NodeManager};
-// Request Assisting Structures & Functions
+
+// Configuration Handling
 pub struct Config {
     addr: SocketAddr,
 }
 impl Config {
     pub fn new(mut args: std::env::Args) -> Result<Config, &'static str> {
-        if args.len() < 3 {
+        if args.len() < 2 {
             return Err("not enough arguments
-            usage: blockchain <ip> <port>");
+            usage: blockchain <port>");
         }
         args.next();
-        let ip = match args.next() {
-            Some(arg) => arg,
-            None => return Err("Didn't get an ip address"),
-        };
         let port = match args.next() {
             Some(arg) => arg,
             None => return Err("Didn't get a port number"),
         };
+        let ip = "0.0.0.0";
         let addr = format!("{}:{}", ip, port).parse().unwrap();
         Ok(Config { addr })
     }
@@ -31,13 +29,14 @@ impl Config {
         self.addr
     }
 }
+// Shared States Structure
 #[derive(Clone)]
 pub struct AppStates {
     pub blockchain: Arc<Mutex<Blockchain>>,
     pub nodes: Arc<Mutex<NodeManager>>,
     pub mining_state: Arc<AtomicBool>,
 }
-
+// Request and Response Structures
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ConnectRequest {
     pub des_ip: String,
@@ -75,6 +74,7 @@ pub struct NewBlockRequest {
     pub last_hash: String,
     pub is_genesis: bool,
 }
+#[derive(Debug)]
 pub enum NewBlockResponse {
     Success,
     SyncRequest,
@@ -98,21 +98,24 @@ pub struct KeyPair {
     pub private_key: String,
     pub public_key: String,
 }
-// Crypto Assisting Structures & Functions
 
+// Cryptography Functions
 pub fn private_key_from_string(private_key: &str) -> Result<SecretKey, String> {
-    let private_key = private_key.trim().trim_start_matches("0x");
-    let private_key = hex::decode(private_key).map_err(|e| e.to_string())?;
-    SecretKey::from_slice(&private_key).map_err(|err| format!("Invalid private key: {}", err))
+    let bytes = hex::decode(private_key.trim_start_matches("0x"))
+        .map_err(|e| format!("Failed to decode private key: {}", e))?;
+    SecretKey::from_slice(&bytes).map_err(|err| format!("Invalid private key: {}", err))
 }
 
 pub fn public_key_from_string(public_key: &str) -> Result<PublicKey, String> {
-    let public_key = public_key.trim().trim_start_matches("0x");
-    let public_key = hex::decode(public_key).map_err(|e| e.to_string())?;
-    PublicKey::from_slice(&public_key).map_err(|err| format!("Invalid public key: {}", err))
+    let bytes = hex::decode(public_key.trim_start_matches("0x"))
+        .map_err(|e| format!("Failed to decode public key: {}", e))?;
+    PublicKey::from_slice(&bytes).map_err(|err| format!("Invalid public key: {}", err))
 }
 
 pub fn is_key_match(private_key: &SecretKey, public_key: &PublicKey) -> Result<bool, String> {
     let secp = Secp256k1::new();
-    Ok(PublicKey::from_secret_key(&secp, private_key) == *public_key)
+    match PublicKey::from_secret_key(&secp, private_key) == *public_key {
+        true => Ok(true),
+        false => Err("Key pair does not match".to_string()),
+    }
 }

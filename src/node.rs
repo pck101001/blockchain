@@ -11,13 +11,14 @@ pub struct Node {
     private_key: Option<String>,
     public_key: Option<String>,
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeManager {
     nodes: Vec<Node>,
 }
 
 impl Node {
-    fn new(addr: SocketAddr) -> Self {
+    pub fn new(addr: SocketAddr) -> Self {
         Node {
             addr,
             last_seen: SystemTime::now(),
@@ -25,27 +26,27 @@ impl Node {
             public_key: None,
         }
     }
-    fn init(&mut self) {
+
+    pub fn init(&mut self) {
         let (private_key, public_key) = generate_keypair(&mut thread_rng());
-        let private_key = hex::encode(private_key.secret_bytes());
-        let public_key = hex::encode(public_key.serialize());
-        self.private_key = Some(private_key);
+        self.private_key = Some(hex::encode(private_key.secret_bytes()));
+        self.public_key = Some(hex::encode(public_key.serialize()));
+    }
+
+    pub fn update_public_key(&mut self, public_key: String) {
         self.public_key = Some(public_key);
     }
-    fn update_public_key(&mut self, public_key: String) {
-        self.public_key = Some(public_key);
-    }
-    fn update_last_seen(&mut self) {
+
+    pub fn update_last_seen(&mut self) {
         self.last_seen = SystemTime::now();
     }
-    fn is_expired(&self, timeout: Duration) -> bool {
+
+    pub fn is_expired(&self, timeout: Duration) -> bool {
         self.last_seen.elapsed().unwrap_or(Duration::from_secs(0)) > timeout
     }
-    fn get_keys(&self) -> (String, String) {
-        (
-            self.private_key.clone().unwrap_or(String::from("")),
-            self.public_key.clone().unwrap_or(String::from("")),
-        )
+
+    pub fn get_keys(&self) -> (Option<&str>, Option<&str>) {
+        (self.private_key.as_deref(), self.public_key.as_deref())
     }
 }
 
@@ -76,13 +77,16 @@ impl NodeManager {
         self.nodes[0].addr
     }
 
-    pub fn get_local_keys(&self) -> (String, String) {
+    pub fn get_local_keys(&self) -> (Option<&str>, Option<&str>) {
         self.nodes[0].get_keys()
     }
 
     pub fn get_local_public_key(&self) -> String {
-        let key = self.nodes[0].public_key.clone().unwrap_or(String::from(""));
-        String::from("0x") + &key
+        self.nodes[0]
+            .public_key
+            .as_ref()
+            .map(|key| String::from("0x") + key)
+            .unwrap_or_else(|| String::from("0x"))
     }
 
     pub fn exists(&self, addr: SocketAddr) -> bool {
